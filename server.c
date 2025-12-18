@@ -1,4 +1,3 @@
-#include <stdarg.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -93,7 +92,6 @@ struct sockaddr_in init_server(int *server_socket){
 
     printf("%d, %d, %d, %d\n", server_addr.sin_family, server_addr.sin_addr.s_addr, server_addr.sin_port, *server_socket);
 
-    //Bind failed: address family not supported by protocol
     if(bind(*server_socket,(struct sockaddr *)&server_addr, server_addr_size) < 0) die("Bind failed");
     printf("Bind Completed\n");
 
@@ -104,8 +102,6 @@ struct sockaddr_in init_server(int *server_socket){
     return server_addr;
 
 }
-/*
- */
 int main(){
 
     GameState Game = init_game();
@@ -133,23 +129,3 @@ int main(){
     close(server_socket);
 
 }
-
-/*
-    if((server_socket = socket(AF_INET,SOCK_STREAM,0)) < 0) die("Server socket failed");
-    printf("Socket Completed\n");
-
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(PORT);
-    socklen_t server_addr_size = sizeof(server_addr);
-
-    printf("%d, %d, %d\n", server_addr.sin_family,server_addr.sin_addr.s_addr, server_addr.sin_port);
-
-    //Bind failed: address family not supported by protocol
-    if(bind(server_socket,(struct sockaddr *)&server_addr, server_addr_size) < 0) die("Bind failed");
-    printf("Bind Completed\n");
-
-    if(listen(server_socket,MAX_PLAYERS) < 0) die("Listen failed");
-    printf("Listen Completed\n");
-*/
-
