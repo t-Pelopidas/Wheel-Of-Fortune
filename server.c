@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -8,8 +9,9 @@
 #include <stdbool.h>
 
 #define PORT 4001
-#define MAX_PLAYERS 3
-#define MAX_WORD_LENGHT 16
+#define MAX_PLAYERS 1
+#define MAX_WORD_LENGHT 256
+#define OPENING_QUOTE "HELLO EVERONE\nWELCOME TO THE WHEEL OF FORTUNE\nITS TIME TO START THE GAME\n"
 
 void die(const char* msg){
     perror(msg);
@@ -32,6 +34,8 @@ GameState init_game(){
 }
 
 void send_to(int fd, const char* msg){
+
+
     write(fd, msg, strlen(msg));
 
     return;
@@ -40,13 +44,11 @@ void send_to(int fd, const char* msg){
 void broadcast(GameState G,const char* msg){
 
     for(int i = 0; i<MAX_PLAYERS; i++){
-        send_to(G.client_fds[i],msg);
+        send_to(G.client_fds[i], msg);
     }
-
     return;
 }
 void accept_clients(GameState *G,int server_socket, struct sockaddr_in server_address){
-
 
     socklen_t server_address_size = sizeof(server_address);
 
@@ -59,7 +61,7 @@ void accept_clients(GameState *G,int server_socket, struct sockaddr_in server_ad
 
 void print_game_state(GameState G){
 
-    printf("-----GAME STATE-----\n\n");
+    printf("-----GAME STATE-----\n");
     printf("client_fds: ");
     for (int i = 0; i<MAX_PLAYERS; i++) {
         printf("%d ",G.client_fds[i]);
@@ -68,7 +70,6 @@ void print_game_state(GameState G){
     printf("isSolved: %d\n", G.isSolved);
     printf("Word: %s\n", G.word_to_guess);
     printf("Masked Word: %s\n", G.masked_word);
-    printf("\n");
     printf("--------------------\n");
 
 }
@@ -80,14 +81,17 @@ void close_clients(GameState G){
 
     return;
 }
+struct sockaddr_in init_server(int *server_socket){
+    struct sockaddr_in server_addr;
 
-void init_server(struct sockaddr_in* server_addr, int *server_socket){
-    if((*server_socket = socket(AF_INET,SOCK_STREAM,0)) < 0) die("Server socket failed");
+    if((*server_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) die("Server socket failed");
+    printf("Socket Completed\n");
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(PORT);
+    socklen_t server_addr_size = sizeof(server_addr);
 
-    server_addr->sin_family = AF_INET;
-    server_addr->sin_port = htons(PORT);
-    server_addr->sin_addr.s_addr = INADDR_ANY;
-    socklen_t server_addr_size = sizeof(*server_addr);
+    printf("%d, %d, %d, %d\n", server_addr.sin_family, server_addr.sin_addr.s_addr, server_addr.sin_port, *server_socket);
 
     //Bind failed: address family not supported by protocol
     if(bind(*server_socket,(struct sockaddr *)&server_addr, server_addr_size) < 0) die("Bind failed");
@@ -96,21 +100,31 @@ void init_server(struct sockaddr_in* server_addr, int *server_socket){
     if(listen(*server_socket,MAX_PLAYERS) < 0) die("Listen failed");
     printf("Listen Completed\n");
 
+
+    return server_addr;
+
 }
+/*
+ */
 int main(){
+
     GameState Game = init_game();
-    struct sockaddr_in server_addr;
+
     int server_socket;
 
-    print_game_state(Game);
+    struct sockaddr_in server_addr = init_server(&server_socket);
 
-    init_server(&server_addr, &server_socket);
+    print_game_state(Game);
 
     printf("Socket Completed\n");
 
     accept_clients(&Game,server_socket, server_addr);
 
-    broadcast(Game,"HELLO EVERONE\n");
+    broadcast(Game,OPENING_QUOTE);
+
+    for(int i = 0; i<MAX_PLAYERS; i++){
+        send_to(Game.client_fds[i],"HELLO\n");
+    }
 
     print_game_state(Game);
 
@@ -119,3 +133,23 @@ int main(){
     close(server_socket);
 
 }
+
+/*
+    if((server_socket = socket(AF_INET,SOCK_STREAM,0)) < 0) die("Server socket failed");
+    printf("Socket Completed\n");
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(PORT);
+    socklen_t server_addr_size = sizeof(server_addr);
+
+    printf("%d, %d, %d\n", server_addr.sin_family,server_addr.sin_addr.s_addr, server_addr.sin_port);
+
+    //Bind failed: address family not supported by protocol
+    if(bind(server_socket,(struct sockaddr *)&server_addr, server_addr_size) < 0) die("Bind failed");
+    printf("Bind Completed\n");
+
+    if(listen(server_socket,MAX_PLAYERS) < 0) die("Listen failed");
+    printf("Listen Completed\n");
+*/
+
