@@ -8,13 +8,15 @@
 
 #define MAX_WORD_LENGTH 1024
 
+char buffer[MAX_WORD_LENGTH];
+
 void die(const char* msg){
     perror(msg);
     exit(EXIT_FAILURE);
 }
 
 struct sockaddr_in init_client(int *server_fd,char* ip, char* port){
-    
+
     struct sockaddr_in server_addr;
 
     if((*server_fd = socket(AF_INET,SOCK_STREAM, 0)) < 0 ) die("Socket Failed");
@@ -31,14 +33,43 @@ struct sockaddr_in init_client(int *server_fd,char* ip, char* port){
     return server_addr;
 } 
 
+void wait_for_turn(int server_fd){
+    int r_bytes;
+    char b[MAX_WORD_LENGTH];
+
+    if((r_bytes = recv(server_fd, b, strlen("YOUR_TURN"), 0)) <= 0) die("Receive failed");;
+    while(strcmp(b,"YOUR_TURN") != 0){
+        printf("Waiting\n");
+        if((r_bytes = recv(server_fd, b, MAX_WORD_LENGTH, 0)) <= 0) die("Receive failed");;
+    }
+
+    printf("My turn now!\n");
+    return;
+}
+
+void take_a_turn(int server_fd){
+
+    char option[MAX_WORD_LENGTH];
+
+    while(1){
+        printf("My turn: ");
+        fgets(option, MAX_WORD_LENGTH, stdin);
+        if(!strcmp(option,"SPIN\n")){
+            send(server_fd, option, strlen(option), 0);
+            return;
+        }
+        printf("Option doesnt exist, try again\n");
+    }
+
+
+}
 int main(int argc,char** argv){
 
-    char buffer[MAX_WORD_LENGTH];
     if(argc < 3) {
-        printf("Usage: ./<program> <IP Address> <Port>\n");
+        printf("Usage: %s <IP Address> <Port>\n", argv[0]);
         die("Wrong Usage");
     }
-    int server_fd;
+    int server_fd, r_bytes;
 
     struct sockaddr_in server_addr = init_client(&server_fd, argv[1], argv[2]);
     socklen_t server_addr_len = sizeof(server_addr);
@@ -49,24 +80,20 @@ int main(int argc,char** argv){
 
     printf("%s, %d, %d\n", inet_ntoa(server_addr.sin_addr), htons(server_addr.sin_port), server_fd);
 
-    int r_bytes;
+    if((r_bytes = recv(server_fd, buffer, MAX_WORD_LENGTH, 0)) < 0) die("Failed to receive message");
+    printf("%s", buffer);
 
-    if((r_bytes = recv(server_fd,buffer, MAX_WORD_LENGTH, 0)) < 0) die("Failed to receive message");
-    buffer[r_bytes] = '\0';
+    while(strcmp(buffer,"END")){
 
-    while(1){
+        wait_for_turn(server_fd);
 
-        printf("From server: %s", buffer);
+        take_a_turn(server_fd);
 
-        fflush(stdout);
-        printf("To Server: ");
-        fflush(stdin);
-        fgets(buffer, MAX_WORD_LENGTH, stdin);
+        if((r_bytes = recv(server_fd, buffer, MAX_WORD_LENGTH, 0)) < 0) die("Failed to receive message");
 
-        if(send(server_fd, buffer, strlen(buffer), 0) < 0 ) die("Failed to send message");
-
-        if((r_bytes = recv(server_fd,buffer, MAX_WORD_LENGTH, 0)) < 0) die("Failed to receive message");
-        buffer[r_bytes] = '\0';
     }
+    printf("End of game\n");
+
+    close(server_fd);
 
 }

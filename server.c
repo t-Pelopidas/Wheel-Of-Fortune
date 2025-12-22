@@ -12,7 +12,8 @@
 #define MAX_WORD_LENGHT 1024
 #define OPENING_QUOTE "HELLO EVERONE\nWELCOME TO THE WHEEL OF FORTUNE\nITS TIME TO START THE GAME\n"
 
-char buffer[MAX_WORD_LENGHT];
+char r_buffer[MAX_WORD_LENGHT] = {0};
+char w_buffer[MAX_WORD_LENGHT] = {0};
 
 void die(const char* msg){
     perror(msg);
@@ -45,12 +46,12 @@ void broadcast(GameState G,const char* msg){
     }
     return;
 }
-void accept_clients(GameState *G,int server_fd, struct sockaddr_in server_address){
+void accept_clients(GameState *G,int *server_fd, struct sockaddr_in server_address){
 
     socklen_t server_address_size = sizeof(server_address);
 
     for(int i = 0; i<MAX_PLAYERS; i++){
-        if ((G->client_fds[i] = accept(server_fd, (struct sockaddr *)&server_address, &server_address_size)) < 0 ) die("accept failed"); 
+        if ((G->client_fds[i] = accept(*server_fd, (struct sockaddr *)&server_address, &server_address_size)) < 0 ) die("accept failed"); 
         printf("P%d accepted with fd:%d \n", i, G->client_fds[i]);
     }
 
@@ -99,37 +100,51 @@ struct sockaddr_in init_server(int *server_fd){
     return server_addr;
 
 }
+
+void get_option(int server_fd,char *buf){
+    char b[MAX_WORD_LENGHT];
+    int r_bytes = 0;
+
+    if((r_bytes = recv(server_fd, b, MAX_WORD_LENGHT, 0)) < 0) die("Failed to receive message");
+    printf("I got the option: %s", b);
+
+    strcpy(buf,b);
+}
+
+void process_option(int player_fd, const char* option){
+
+    if(strcmp(option,"SPIN")){
+
+        send_to(player_fd, "You got 200 point!\n");
+    }
+}
+
 int main(){
 
     GameState Game = init_game();
 
-    int server_fd, r_bytes;
+    int server_fd;
 
     struct sockaddr_in server_addr = init_server(&server_fd);
 
-    accept_clients(&Game,server_fd, server_addr);
+    accept_clients(&Game, &server_fd, server_addr);
 
     broadcast(Game,OPENING_QUOTE);
 
     print_game_state(Game);
 
-    if ((r_bytes = recv(Game.client_fds[0], buffer,MAX_WORD_LENGHT, 0)) < 0) die("Failed to receive message");
-    buffer[r_bytes] = '\0';
+    while(Game.isSolved != true){
 
-    while(strcmp(buffer, "QQ") != 0){
-
-        printf("From P%d: %s",0, buffer);
-
-        fflush(stdin);
-        fgets(buffer, MAX_WORD_LENGHT, stdin);
-
-        send_to(Game.client_fds[0],buffer);
-
-        if ((r_bytes = recv(Game.client_fds[0], buffer,MAX_WORD_LENGHT, 0)) < 0) die("Failed to receive message");
-        buffer[r_bytes] = '\0';
+        for(int i = 0; i < MAX_PLAYERS; i++){
+            send_to(Game.client_fds[i], "YOUR_TURN");
+            get_option(Game.client_fds[i], r_buffer);
+            process_option(Game.client_fds[i], r_buffer);
+        }
+        Game.isSolved = true;
+        broadcast(Game,"END");
     }
+
     close_clients(Game);
 
     close(server_fd);
-
 }
