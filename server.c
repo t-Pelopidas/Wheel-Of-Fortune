@@ -1,3 +1,4 @@
+#include <asm-generic/socket.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -8,9 +9,9 @@
 #include <stdbool.h>
 
 #define PORT 4001
-#define MAX_PLAYERS 1
+#define MAX_PLAYERS 3
 #define MAX_WORD_LENGHT 1024
-#define OPENING_QUOTE "HELLO EVERONE\nWELCOME TO THE WHEEL OF FORTUNE\nITS TIME TO START THE GAME\n"
+#define OPENING_QUOTE "-------------\nWELCOME TO THE WHEEL OF FORTUNE\n-------------\n\0"
 
 char r_buffer[MAX_WORD_LENGHT] = {0};
 char w_buffer[MAX_WORD_LENGHT] = {0};
@@ -22,6 +23,7 @@ void die(const char* msg){
 
 typedef struct {
     int client_fds[MAX_PLAYERS];
+    int client_turn[MAX_PLAYERS];
     char word_to_guess[MAX_WORD_LENGHT];
     char masked_word[MAX_WORD_LENGHT];
     bool isSolved;
@@ -29,14 +31,14 @@ typedef struct {
 
 GameState init_game(){
     GameState G;
-    strcpy(G.word_to_guess,"Hello");
-    strcpy(G.masked_word,"_____");
+    strcpy(G.word_to_guess,"Hello\0");
+    strcpy(G.masked_word,"_____\0");
     G.isSolved = false;
     return G;
 }
 
-void send_to(int fd, const char* msg){
-    if(send(fd, msg, strlen(msg), 0) < 0) die("Failed to send message");
+void send_to(int player_fd,const char* msg){
+    if(send(player_fd, msg, strlen(msg), 0) < 0) die("Failed to send message");
 }
 
 void broadcast(GameState G,const char* msg){
@@ -53,6 +55,7 @@ void accept_clients(GameState *G,int *server_fd, struct sockaddr_in server_addre
     for(int i = 0; i<MAX_PLAYERS; i++){
         if ((G->client_fds[i] = accept(*server_fd, (struct sockaddr *)&server_address, &server_address_size)) < 0 ) die("accept failed"); 
         printf("P%d accepted with fd:%d \n", i, G->client_fds[i]);
+        G->client_turn[i] = 0;
     }
 
 }
@@ -91,6 +94,9 @@ struct sockaddr_in init_server(int *server_fd){
 
     printf("%d, %d, %d, %d\n", server_addr.sin_family, server_addr.sin_addr.s_addr, server_addr.sin_port, *server_fd);
 
+    int opt = 1;
+    if(setsockopt(*server_fd, SOL_SOCKET, SO_REUSEADDR, &opt , sizeof(opt)) < 0) die("setsockopt failed");
+
     if(bind(*server_fd,(struct sockaddr *)&server_addr, server_addr_size) < 0) die("Bind failed");
     printf("Bind Completed\n");
 
@@ -102,21 +108,30 @@ struct sockaddr_in init_server(int *server_fd){
 }
 
 void get_option(int server_fd,char *buf){
-    char b[MAX_WORD_LENGHT];
     int r_bytes = 0;
 
-    if((r_bytes = recv(server_fd, b, MAX_WORD_LENGHT, 0)) < 0) die("Failed to receive message");
-    printf("I got the option: %s", b);
-
-    strcpy(buf,b);
+    if((r_bytes = recv(server_fd, buf, MAX_WORD_LENGHT - 1, 0)) < 0) die("Failed to receive message");
+    buf[r_bytes]= '\0';
+    printf("I got the option:\n%s\n", buf);
 }
 
-void process_option(int player_fd, const char* option){
+int process_option(int player_fd, const char* option){
 
-    if(strcmp(option,"SPIN")){
+    printf("option: %s\n", option);
 
-        send_to(player_fd, "You got 200 point!\n");
+    if(strcmp(option,"END\n") == 0){
+        printf("option hit!\n");
+        send_to(player_fd, "too bad\0\n");
+        return 0;
     }
+    if(strcmp(option,"SPIN\n") == 0){
+        printf("option hit!\n");
+        printf("I sending the player 200 point!\n");
+        send_to(player_fd,"You got 200 points\0\n");
+        return 1;
+    }
+    printf("option miss!\n");
+    return 0;
 }
 
 int main(){
@@ -129,20 +144,45 @@ int main(){
 
     accept_clients(&Game, &server_fd, server_addr);
 
-    broadcast(Game,OPENING_QUOTE);
+    //WELCOME MESSAGE
+    broadcast(Game, OPENING_QUOTE);
 
     print_game_state(Game);
 
     while(Game.isSolved != true){
 
+        char response[MAX_WORD_LENGHT];
+
         for(int i = 0; i < MAX_PLAYERS; i++){
-            send_to(Game.client_fds[i], "YOUR_TURN");
-            get_option(Game.client_fds[i], r_buffer);
-            process_option(Game.client_fds[i], r_buffer);
+            Game.client_turn[i] = 1; 
+            while(Game.client_turn[i]){
+                //GIVE TURN
+                printf("\nbefore YOUR_TURN\n");
+                send_to(Game.client_fds[i],"YOUR_TURN\0");
+                printf("after YOUR_TURN\n");
+
+                //SEND UNSOLVED WORD
+                printf("\nbefore sending word state\n");
+                send_to(Game.client_fds[i],Game.masked_word);
+                printf("after sending word state\n");
+                
+                //READ THE PLAYER OPTION
+                printf("\nbefore get_option\n");
+                get_option(Game.client_fds[i],response);
+                printf("after get_option\n");
+
+                //PROCESS THE PLAYER OPTION
+                //AND SEND RESPONSE
+                printf("\nbefore process_option\n");
+                Game.client_turn[i] &= process_option(Game.client_fds[i], response);
+                printf("after process_option\n");
+            }
+
         }
         Game.isSolved = true;
-        broadcast(Game,"END");
+
     }
+    broadcast(Game,"END");
 
     close_clients(Game);
 
