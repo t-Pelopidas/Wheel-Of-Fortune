@@ -9,7 +9,7 @@
 #include <stdbool.h>
 
 #define PORT 4001
-#define MAX_PLAYERS 3
+#define MAX_PLAYERS 1
 #define MAX_WORD_LENGHT 1024
 #define OPENING_QUOTE "-------------\nWELCOME TO THE WHEEL OF FORTUNE\n-------------\n\0"
 
@@ -38,7 +38,7 @@ GameState init_game(){
 }
 
 void send_to(int player_fd,const char* msg){
-    if(send(player_fd, msg, strlen(msg), 0) < 0) die("Failed to send message");
+    if(send(player_fd, msg, strlen(msg) + 1, 0) < 0) die("Failed to send message");
 }
 
 void broadcast(GameState G,const char* msg){
@@ -121,15 +121,17 @@ int process_option(int player_fd, const char* option){
 
     if(strcmp(option,"END\n") == 0){
         printf("option hit!\n");
-        send_to(player_fd, "too bad\0\n");
+        send_to(player_fd, "too bad\n\0");
         return 0;
     }
+
     if(strcmp(option,"SPIN\n") == 0){
         printf("option hit!\n");
-        printf("I sending the player 200 point!\n");
-        send_to(player_fd,"You got 200 points\0\n");
+        send_to(player_fd,"You got 200 points\n\0");
         return 1;
     }
+
+
     printf("option miss!\n");
     return 0;
 }
@@ -157,32 +159,24 @@ int main(){
             Game.client_turn[i] = 1; 
             while(Game.client_turn[i]){
                 //GIVE TURN
-                printf("\nbefore YOUR_TURN\n");
-                send_to(Game.client_fds[i],"YOUR_TURN\0");
-                printf("after YOUR_TURN\n");
+                send_to(Game.client_fds[i], "YOUR_TURN\0");
 
                 //SEND UNSOLVED WORD
-                printf("\nbefore sending word state\n");
                 send_to(Game.client_fds[i],Game.masked_word);
-                printf("after sending word state\n");
                 
-                //READ THE PLAYER OPTION
-                printf("\nbefore get_option\n");
-                get_option(Game.client_fds[i],response);
-                printf("after get_option\n");
+                //READ THE PLAYER OPTIO\\\\\nnnnnN
+                get_option(Game.client_fds[i], response);
 
                 //PROCESS THE PLAYER OPTION
                 //AND SEND RESPONSE
-                printf("\nbefore process_option\n");
                 Game.client_turn[i] &= process_option(Game.client_fds[i], response);
-                printf("after process_option\n");
             }
 
         }
         Game.isSolved = true;
 
     }
-    broadcast(Game,"END");
+    broadcast(Game,"END\0");
 
     close_clients(Game);
 
