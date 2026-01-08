@@ -10,7 +10,7 @@ CC = gcc
 # -pedantic: Enforce strict adherence to the C standard
 # -g: Include debugging information (for GDB)
 # -std=c11: Specify the C standard
-CFLAGS = -Wall -Wextra -Werror -pedantic -g 
+CFLAGS = -Wall -Wextra -Werror -pedantic -g -lm
 
 # Linker Flags (e.g., add -lm for math library)
 LDFLAGS =

@@ -1,4 +1,5 @@
 #include <asm-generic/socket.h>
+#include <stddef.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -9,7 +10,7 @@
 #include <stdbool.h>
 
 #define PORT 4001
-#define MAX_PLAYERS 1
+#define MAX_PLAYERS 2
 #define MAX_WORD_LENGHT 1024
 #define OPENING_QUOTE "-------------\nWELCOME TO THE WHEEL OF FORTUNE\n-------------\n\0"
 
@@ -115,22 +116,82 @@ void get_option(int server_fd,char *buf){
     printf("I got the option:\n%s\n", buf);
 }
 
-int process_option(int player_fd, const char* option){
+int process_option(GameState *G, int player_fd, const char* option){
 
     printf("option: %s\n", option);
 
-    if(strcmp(option,"END\n") == 0){
-        printf("option hit!\n");
-        send_to(player_fd, "too bad\n\0");
-        return 0;
-    }
+    if(strncmp(option, "SPIN", strlen("SPIN")) == 0){
 
-    if(strcmp(option,"SPIN\n") == 0){
-        printf("option hit!\n");
-        send_to(player_fd,"You got 200 points\n\0");
+        int points = rand()%1501, r_bytes = 0;
+
+        char spoints[5] = {0};
+
+        for(int i = 0; i < 4; i++) {
+            int power = 1;
+            for(int j=0; j<i; j++) power *= 10; 
+            int digit = (points / power) % 10;
+            spoints[3-i] = digit + '0'; 
+        }
+        
+        if(points == 1312){
+            send_to(player_fd, "bankruptcy");
+            return 0;
+        }
+        if(points == 666){
+            send_to(player_fd, "end_of_turn");
+            return 0; 
+        }
+
+        send_to(player_fd, spoints);
+
+        if((r_bytes = recv(player_fd, r_buffer, MAX_WORD_LENGHT, 0))< 0) die("Failed to recv");
+
+        if(*r_buffer == 0){
+            return 0;
+        }
+        r_buffer[r_bytes] = '\0';
+
+        printf("letter/word to guess = %s\n", r_buffer);
+        if(strlen(r_buffer) ==  1){
+            bool match_found = false;
+            printf("strlen(word) = %d\n",(int)strlen(G->word_to_guess));
+
+            for(int i = 0; i < (int)strlen(G->word_to_guess); i++){
+                printf("word_to_guess[i] = %c, r_buffer = %c\n",G->word_to_guess[i], *r_buffer);
+                if(G->word_to_guess[i] == *r_buffer){
+                    if(G->masked_word[i] == *r_buffer){
+                        return 0;
+                    }
+                    G->masked_word[i] = *r_buffer;
+                    match_found = true;
+                }
+            }
+            if(!match_found){
+                send_to(player_fd, "no_match\0");
+                return 0;
+            }
+            if(!strncmp(G->word_to_guess, G->masked_word, strlen(G->word_to_guess))){
+                send_to(player_fd, "word_found\0");
+                G->isSolved = true;
+                return 0;
+            }
+            else{
+                broadcast(*G,G->masked_word);
+                printf("masked_word after: %s\n", G->masked_word);
+            }
+        }
+        else{
+            if(!strncmp(r_buffer, G->word_to_guess, strlen(G->word_to_guess))){
+                send_to(player_fd, "word_found\0");
+                G->isSolved = true;
+                return 0;
+            }
+            send_to(player_fd, "no_match\0");
+            return 0;
+        }
+
         return 1;
     }
-
 
     printf("option miss!\n");
     return 0;
@@ -146,8 +207,9 @@ int main(){
 
     accept_clients(&Game, &server_fd, server_addr);
 
-    //WELCOME MESSAGE
     broadcast(Game, OPENING_QUOTE);
+
+    broadcast(Game, Game.masked_word);
 
     print_game_state(Game);
 
@@ -156,25 +218,19 @@ int main(){
         char response[MAX_WORD_LENGHT];
 
         for(int i = 0; i < MAX_PLAYERS; i++){
-            Game.client_turn[i] = 1; 
-            while(Game.client_turn[i]){
-                //GIVE TURN
-                send_to(Game.client_fds[i], "YOUR_TURN\0");
+            char current_info[32];
+            sprintf(current_info,"Its Player %d's turn\n" ,i + 1);
+            broadcast(Game, current_info);
 
-                //SEND UNSOLVED WORD
-                send_to(Game.client_fds[i],Game.masked_word);
-                
-                //READ THE PLAYER OPTIO\\\\\nnnnnN
+            Game.client_turn[i] = 1; 
+            send_to(Game.client_fds[i], "YOUR_TURN\0");
+            while(Game.client_turn[i]){
                 get_option(Game.client_fds[i], response);
 
-                //PROCESS THE PLAYER OPTION
-                //AND SEND RESPONSE
-                Game.client_turn[i] &= process_option(Game.client_fds[i], response);
+                Game.client_turn[i] &= process_option(&Game, Game.client_fds[i], response);
             }
 
         }
-        Game.isSolved = true;
-
     }
     broadcast(Game,"END\0");
 

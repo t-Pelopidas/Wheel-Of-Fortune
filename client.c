@@ -11,6 +11,8 @@
 
 char buffer[MAX_WORD_LENGTH];
 
+int points = 0;
+
 char* OPTION_ARRAY[NUM_OF_OPTIONS] = {"SPIN\n", "GUESS_LETTER\0", "GUESS_WORD\0"};
 
 void die(const char* msg){
@@ -18,16 +20,16 @@ void die(const char* msg){
     exit(EXIT_FAILURE);
 }
 
-char* read_line(int server_fd, char *buffer){
+void read_line(int server_fd, char *buffer){
     int i = 0;
     char c;
     int n;
 
     while (1) {
         if (i >= MAX_WORD_LENGTH - 1) {
-            buffer[i] = '\0'; // Force termination
+            buffer[i] = '\0';
             printf("Warning: Message too long, truncated.\n");
-            return buffer;
+            return;
         }
         n = recv(server_fd, &c, 1, 0);
         if (n < 0) die("recv failed");
@@ -36,7 +38,7 @@ char* read_line(int server_fd, char *buffer){
         buffer[i] = c;
 
         if (c == '\0') {
-            return buffer;
+            return;
         }
 
         i++;
@@ -64,19 +66,19 @@ struct sockaddr_in init_client(int *server_fd, char* ip, char* port){
 
 void wait_for_turn(int server_fd){
 
-    char *message = read_line(server_fd,buffer);
+    char message[MAX_WORD_LENGTH];
 
     while(1){
-        if(strcmp(message,"YOUR_TURN\0") == 0){
-            printf("My turn now!\n");
+        read_line(server_fd, message);
+        if(strncmp(message, "YOUR_TURN", strlen("YOUR_TURN")) == 0){
+            printf("MY TURN\n");
             return;
         }
-        printf("Waiting for turn...\r");
-        printf("Host: %s", message);
-        message = read_line(server_fd, buffer);
+        printf("Host: %s\n", message);
+        fflush(stdout);
     }
 
-    return;
+
 }
 
 void take_a_turn(int server_fd){
@@ -84,34 +86,101 @@ void take_a_turn(int server_fd){
     char option[MAX_WORD_LENGTH];
 
     while(1){
+
         printf("> : ");
         fgets(option, MAX_WORD_LENGTH, stdin);
 
-        if(!strncmp(option, "SPIN\n",strlen("SPIN\n"))){
+        if(!strncmp(option, "SPIN",strlen("SPIN"))){
 
             if(send(server_fd, option, strlen(option), 0) < 0) die("Failed to send message"); 
-	    read_line(server_fd, buffer);
 
-	    printf("%s", buffer);
+            read_line(server_fd, buffer);
+            printf("After spin: %s\n", buffer);
 
-	    if(!strncmp(buffer, "bankruptcy", strlen("bankruptcy"))){
-		    printf("Bankrupcy you lose your !!\n");
-		    return;
+            if(!strncmp(buffer, "bankruptcy", strlen("bankruptcy"))){
+                printf("Bankruptcy you lose your points and turn :(\n");
+                points = 0;
+                return;
+            }
 
-	    }
+            if(!strncmp(buffer, "end_of_turn", strlen("end_of_turn"))){
+                printf("You lose your turn :(\n");
+                return;
+            }
 
 
-	    return;
+            int points_received = 0;
+            for(int i = 0; i < (int)strlen(buffer); i++) points_received += buffer[i] - '0';
+            points += points_received;
+
+            printf("You got %d points!(Total points: %d)\n ", points_received, points);
+
+            printf("(GUESS LETTER/WORD)> : ");
+            fgets(option, MAX_WORD_LENGTH, stdin);
+
+            while(strncmp(option, "GUESS_LETTER", strlen("GUESS_LETTER")) && strncmp(option, "GUESS_WORD", strlen("GUESS_WORD"))){
+                printf("Option doesnt exits, try again\n");
+                printf("(GUESS LETTER/WORD)> : ");
+                fgets(option, MAX_WORD_LENGTH, stdin);
+            }
+
+            if(!strncmp(option, "GUESS_LETTER", strlen("GUESS_LETTER"))){
+                char letter_to_guess = option[strlen("GUESS_LETTER") + 1];
+                if(letter_to_guess == 0){
+                    printf("You have to guess a letter\n");
+                    return;
+                }
+                printf("letter to guess: %d\n", letter_to_guess);
+                send(server_fd, &letter_to_guess, 1, 0);
+            }
+            else if(!strncmp(option, "GUESS_WORD", strlen("GUESS_WORD"))){
+                char word_to_guess[MAX_WORD_LENGTH] = {0};
+                int i = 0;
+
+                while(option[strlen("GUESS_WORD") + 1 + i] != '\0'){
+                    word_to_guess[i] = option[strlen("GUESS_WORD") + 1 + i];
+                    i++;
+                }
+                word_to_guess[i] = '\0';
+                send(server_fd, word_to_guess, strlen(word_to_guess), 0);
+            }
+
+            char response[MAX_WORD_LENGTH];
+            read_line(server_fd, response);
+
+            if(!strncmp(response, "no_match", strlen("no_match"))){
+                printf("No match found :(\n");
+                return;
+            }
+            else if(!strncmp(response, "word_found", strlen("word_found"))){
+                printf("Word found!!\n");
+                return;
+            }
+
+            else{
+                printf("Match found!\n");
+                printf("The Unsolved word is: \"%s\"\n", response);
+            }
+
         }
-	else{
-		printf("Option doesnt exist, try again\n"); 
-	}
+        else{
+            printf("Option doesnt exist, try again\n"); 
+        }
 
     }
 
 }
-int main(int argc,char** argv){
+int main(int argc,char* argv[]){
 
+
+
+    /*
+     *  TODO:   Fix the points(lower than they must be)
+     *          End the program once a player found the word correctly
+     *          Random word picker
+     *          Lose a turn if guessing the same letter ( maybe )
+     *
+     */
     if(argc < 3) {
         printf("Usage: %s <IP Address> <Port>\n", argv[0]);
         die("Wrong Usage");
@@ -127,100 +196,27 @@ int main(int argc,char** argv){
 
     printf("%s, %d, %d\n", inet_ntoa(server_addr.sin_addr), htons(server_addr.sin_port), server_fd);
 
-    //WELCOME MESSAGE
-    char* welcome_message = read_line(server_fd, buffer);
+    char welcome_message[MAX_WORD_LENGTH] = {0};
+    read_line(server_fd, welcome_message);
     printf("%s", welcome_message);
 
-    while(strcmp(buffer,"END")){
-        //WAIT TO RECEIVE TURN
-        wait_for_turn(server_fd);
-        
-        //RECEIVE UNSOLVED WORD
-        char *unsolved_word = read_line(server_fd, buffer);
-        printf("The Unsolved word is: \" %s \"\n", unsolved_word);
+    printf("LET THE GAME BEGIN\n");
+    
+    read_line(server_fd, buffer);
+    printf("The word to guess is: %s\n", buffer);
 
-        //SEND THE OPTION
+    while(strcmp(buffer,"END")){
+
+        read_line(server_fd, buffer);
+        printf("%s", buffer);
+
+        wait_for_turn(server_fd);
+
         take_a_turn(server_fd);
 
-        //RESPONSE
-        char *response = read_line(server_fd, buffer);
-        printf("%s", response);
-
     }
+
+    printf("Total points: %d\n", points);
 
     close(server_fd);
 }
-
-
-//option1 = 12
-//GUESS_LETTER L
-//           ^
-//           12
-//          [11]
-//
-//
-//
-//./server
-//
-
-/*int handle_option(const char* option){
-
-    int option_len = strlen(option);
-    int option1 = strlen(OPTION_ARRAY[1]);
-    int option2 = strlen(OPTION_ARRAY[2]);
-
-    if(!strcmp(option,OPTION_ARRAY[0])) return 1;
-
-    char a[option1];
-    char b[option2];
-
-    int i = 0;
-    while(i <= option1 + 1){
-        a[i] = option[i];
-        i++;
-    }
-    a[option1] = '\0';
-
-    printf("a : %s", a);
-
-    if(strcmp(a, OPTION_ARRAY[1]) == 0 &&  option[option1] == ' ') { 
-            printf("\n%d\n%d\n", option[option1], option[option1 + 1]);
-            char letter_to_guess = option[option1 + 1];
-            if(option[option1 + 2] != '\n'){
-                printf("You can guess only one letter\n"); 
-                return 0;
-            }
-            printf("Letter: %c, atoi(Letter): %d\n", letter_to_guess, atoi(&letter_to_guess));
-            return (int)letter_to_guess;
-    }
-    else {
-        printf("\n%d\n%d\n", option[option1], option[option1 + 1]);
-        return 0;
-    }
-
-
-    i = 0;
-
-    while(i <= option2){
-        b[i] = option[i];
-        i++;
-    }
-    b[option2 - 1] = '\0';
-
-
-    printf("b : %s", b);
-
-    if(!strcmp(b, OPTION_ARRAY[2]) && option[option2] == ' ') { 
-        char word_to_guess[MAX_WORD_LENGTH];
-        for(i = option2 + 2; i < option_len; i++){
-            word_to_guess[i - option2 - 2] = option[i];  
-        }
-        word_to_guess[option_len - option2 + 2] = '\0';
-        printf("Word to guess: %s", word_to_guess);
-        return atoi(word_to_guess);
-
-    }
-
-    return 0;
-}
-*/
