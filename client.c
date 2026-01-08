@@ -87,16 +87,26 @@ void take_a_turn(int server_fd){
         printf("> : ");
         fgets(option, MAX_WORD_LENGTH, stdin);
 
-        if(strncmp(option, OPTION_ARRAY[0],strlen(OPTION_ARRAY[0])) == 0){
-            if(send(server_fd, option, strlen(option), 0) < 0) die("Failed to send message");
-            read_line(server_fd, buffer);
+        if(!strncmp(option, "SPIN\n",strlen("SPIN\n"))){
+
+            if(send(server_fd, option, strlen(option), 0) < 0) die("Failed to send message"); 
+	    read_line(server_fd, buffer);
+
+	    printf("%s", buffer);
+
+	    if(!strncmp(buffer, "bankruptcy", strlen("bankruptcy"))){
+		    printf("Bankrupcy you lose your !!\n");
+		    return;
+
+	    }
+
+
+	    return;
         }
+	else{
+		printf("Option doesnt exist, try again\n"); 
+	}
 
-        else if(strncmp(option, OPTION_ARRAY[1],strlen(OPTION_ARRAY[1])) == 0){ }
-
-        else if(strncmp(option, OPTION_ARRAY[2],strlen(OPTION_ARRAY[2])) == 0){ }
-
-        printf("Option doesnt exist, try again\n");
     }
 
 }
@@ -150,7 +160,7 @@ int main(int argc,char** argv){
 //
 //
 //
-//
+//./server
 //
 
 /*int handle_option(const char* option){
