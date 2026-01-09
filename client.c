@@ -64,16 +64,17 @@ struct sockaddr_in init_client(int *server_fd, char* ip, char* port){
     return server_addr;
 } 
 
-void wait_for_turn(int server_fd){
+int wait_for_turn(int server_fd){
 
     char message[MAX_WORD_LENGTH];
 
     while(1){
         read_line(server_fd, message);
-        if(strncmp(message, "YOUR_TURN", strlen("YOUR_TURN")) == 0){
+        if(!strncmp(message, "YOUR_TURN", strlen("YOUR_TURN"))){
             printf("MY TURN\n");
-            return;
+            return 1;
         }
+        if(!strncmp(message, "END", strlen("END"))) return 0;
         printf("Host: %s\n", message);
         fflush(stdout);
     }
@@ -108,9 +109,14 @@ void take_a_turn(int server_fd){
                 return;
             }
 
-
             int points_received = 0;
-            for(int i = 0; i < (int)strlen(buffer); i++) points_received += buffer[i] - '0';
+
+            for(int i = 0; i < (int)strlen(buffer); i++){
+                int power = 1;
+                for(int j = (int)strlen(buffer) - i - 1; j>0  ; j--){power *= 10;}
+                points_received += (buffer[i] - '0')*power;
+
+            }
             points += points_received;
 
             printf("You got %d points!(Total points: %d)\n ", points_received, points);
@@ -152,6 +158,12 @@ void take_a_turn(int server_fd){
                 printf("No match found :(\n");
                 return;
             }
+            else if(!strncmp(response, "lose_turn", strlen("lose_turn"))){
+                printf("You can't guess the same letter twice multiple times, you lose the turn\n");
+                points -= points_received;
+                return;
+            }
+            
             else if(!strncmp(response, "word_found", strlen("word_found"))){
                 printf("Word found!!\n");
                 return;
@@ -173,17 +185,14 @@ void take_a_turn(int server_fd){
 int main(int argc,char* argv[]){
 
 
-
     /*
-     *  TODO:   Fix the points(lower than they must be)
-     *          End the program once a player found the word correctly
-     *          Random word picker
-     *          Lose a turn if guessing the same letter ( maybe )
-     *
+     * TODO:    
+     *          Check for the bankruptcy and lose turn scenarios
+     *          Delete the debugging printfs
      */
     if(argc < 3) {
         printf("Usage: %s <IP Address> <Port>\n", argv[0]);
-        die("Wrong Usage");
+     ;   die("Wrong Usage");
     }
     int server_fd;
 
@@ -205,18 +214,23 @@ int main(int argc,char* argv[]){
     read_line(server_fd, buffer);
     printf("The word to guess is: %s\n", buffer);
 
-    while(strcmp(buffer,"END")){
+    while(strncmp(buffer, "END", strlen("END"))){
 
         read_line(server_fd, buffer);
+        if(!strncmp(buffer, "END", strlen("END"))) break;
         printf("%s", buffer);
 
-        wait_for_turn(server_fd);
+        if(!wait_for_turn(server_fd)) break;
 
         take_a_turn(server_fd);
 
     }
+    read_line(server_fd, buffer);
+
+    printf("%s", buffer);
 
     printf("Total points: %d\n", points);
+    
 
     close(server_fd);
 }

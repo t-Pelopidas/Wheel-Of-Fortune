@@ -1,52 +1,35 @@
 # --- Build Configuration ---
-
-# Compiler to use
 CC = gcc
 
-# Strict Compilation Flags (The core requirement)
-# -Wall: Enable all standard warnings
-# -Wextra: Enable extra warnings
-# -Werror: Treat warnings as errors (Non-negotiable for robust code)
-# -pedantic: Enforce strict adherence to the C standard
-# -g: Include debugging information (for GDB)
-# -std=c11: Specify the C standard
-CFLAGS = -Wall -Wextra -Werror -pedantic -g -lm
-
-# Linker Flags (e.g., add -lm for math library)
-LDFLAGS =
-
-# Name of the final executable
-TARGET = program
-
-# --- File Discovery ---
-
-# Find all .c files in the current directory
-SOURCES = $(wildcard *.c)
-
-# Generate object file names from source files (e.g., main.c -> main.o)
-OBJECTS = $(SOURCES:.c=.o)
+# Strict Compilation Flags
+# Added -D_DEFAULT_SOURCE to suppress common warnings with standard headers
+CFLAGS = -Wall -Wextra -Werror -pedantic -g -D_DEFAULT_SOURCE
 
 # --- Main Targets ---
 
-# Default target: builds the program
-all: $(TARGET)
+all: server client
 
-# Link the final executable: $(TARGET)
-$(TARGET): $(OBJECTS)
-	@echo "--- Linking executable: $(TARGET) ---"
-	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
+# Build the Server Executable
+server: server.o
+	@echo "--- Linking server ---"
+	$(CC) server.o -o server
 
-# Compile C source files into object files: %.o
-# This is a pattern rule that applies to all files ending in .o
+# Build the Client Executable
+client: client.o
+	@echo "--- Linking client ---"
+	$(CC) client.o -o client
+
+# --- Compilation Rule ---
+
+# The -c flag is CRITICAL. It compiles source to object code without linking.
 %.o: %.c
 	@echo "--- Compiling $< ---"
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@
+	rm *.o
 
-# --- Utility Targets ---
 
-# Clean target: remove all generated files
+# --- Utility ---
+
 clean:
-	@echo "--- Cleaning up build artifacts ---"
-	rm -f $(TARGET) $(OBJECTS)
-
-.PHONY: all clean
+	@echo "--- Cleaning up ---"
+	rm -f server client *.o

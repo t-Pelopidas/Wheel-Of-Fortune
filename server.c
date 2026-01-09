@@ -1,5 +1,6 @@
 #include <asm-generic/socket.h>
 #include <stddef.h>
+#include <strings.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -8,14 +9,19 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <time.h>
 
 #define PORT 4001
 #define MAX_PLAYERS 2
 #define MAX_WORD_LENGHT 1024
 #define OPENING_QUOTE "-------------\nWELCOME TO THE WHEEL OF FORTUNE\n-------------\n\0"
 
+char *WORD_ARRAY[128] ={"Actor","Amazon","Animal","Answer","Apple","Area","Artist","Asteroid","Atlantic","Audience","August","Australia","Bicycle","Biology","Birthday","Bone","Bread","Business","Camera","Captain","Century","Chef","Cinema","Classic","Coffee","Comedy","Comet","Computer","Concert","Country","Create","Dance","Decade","Desert","Dessert","Dinner","Discover","Doctor","Dolphin","Drama","Eagle","Earth","Energy","Famous","Farmer","Fashion","February","Flower","Forest","Friday","Galaxy","Garden","Giraffe","Golden","Gorilla","Gravity","History","Holiday","Honey","Imagine","Island","January","Keyboard","Kitchen","Language","Lawyer","Lemon","Leopard","Listen","Market","Memory","Midnight","Mirror","Modern","Monday","Morning","Mountain","Movie","Music","Nature","Novel","Ocean","Opera","Oxygen","Painting","Paper","Pasta","Penguin","Piano","Pilot","Pizza","Planet","Player","Poetry","Popular","President","Prize","Question","Rabbit","Radio","Remember","River","Rocket","Royal","Science","Silver","Solar","Space","Summer","Teacher","Telephone","Telescope","Television","Theater","Tiger","Tonight","Travel","Umbrella","Valley","Vintage","Volcano","Water","Waterfall","Weather","Website","Winter","Yesterday","Zebra"};
+
 char r_buffer[MAX_WORD_LENGHT] = {0};
 char w_buffer[MAX_WORD_LENGHT] = {0};
+
 
 void die(const char* msg){
     perror(msg);
@@ -24,16 +30,22 @@ void die(const char* msg){
 
 typedef struct {
     int client_fds[MAX_PLAYERS];
-    int client_turn[MAX_PLAYERS];
     char word_to_guess[MAX_WORD_LENGHT];
     char masked_word[MAX_WORD_LENGHT];
     bool isSolved;
 }GameState;
 
 GameState init_game(){
+    srand(time(NULL));
+
     GameState G;
-    strcpy(G.word_to_guess,"Hello\0");
-    strcpy(G.masked_word,"_____\0");
+    int i = rand()%128;
+    snprintf(G.word_to_guess, strlen(WORD_ARRAY[i]) + 1,"%s", WORD_ARRAY[i]);
+    for(int j = 0; j < (int)strlen(WORD_ARRAY[i]); j++){
+        G.masked_word[j] = '_';
+    }
+    G.masked_word[strlen(WORD_ARRAY[i])] = '\0';
+
     G.isSolved = false;
     return G;
 }
@@ -56,14 +68,12 @@ void accept_clients(GameState *G,int *server_fd, struct sockaddr_in server_addre
     for(int i = 0; i<MAX_PLAYERS; i++){
         if ((G->client_fds[i] = accept(*server_fd, (struct sockaddr *)&server_address, &server_address_size)) < 0 ) die("accept failed"); 
         printf("P%d accepted with fd:%d \n", i, G->client_fds[i]);
-        G->client_turn[i] = 0;
     }
 
 }
 
 void print_game_state(GameState G){
-
-    printf("-----GAME STATE-----\n");
+   printf("-----GAME STATE-----\n");
     printf("client_fds: ");
     for (int i = 0; i<MAX_PLAYERS; i++) {
         printf("%d ",G.client_fds[i]);
@@ -133,11 +143,11 @@ int process_option(GameState *G, int player_fd, const char* option){
             spoints[3-i] = digit + '0'; 
         }
         
-        if(points == 1312){
+        if(points%2 == 0/*points >= 120 && points <= 190*/){
             send_to(player_fd, "bankruptcy");
             return 0;
         }
-        if(points == 666){
+        if((points >= 210 && points <= 230) || (points >= 620 && points <= 670)){
             send_to(player_fd, "end_of_turn");
             return 0; 
         }
@@ -160,6 +170,7 @@ int process_option(GameState *G, int player_fd, const char* option){
                 printf("word_to_guess[i] = %c, r_buffer = %c\n",G->word_to_guess[i], *r_buffer);
                 if(G->word_to_guess[i] == *r_buffer){
                     if(G->masked_word[i] == *r_buffer){
+                        send_to(player_fd, "lose_turn\0");
                         return 0;
                     }
                     G->masked_word[i] = *r_buffer;
@@ -178,6 +189,7 @@ int process_option(GameState *G, int player_fd, const char* option){
             else{
                 broadcast(*G,G->masked_word);
                 printf("masked_word after: %s\n", G->masked_word);
+                return 1;
             }
         }
         else{
@@ -190,10 +202,12 @@ int process_option(GameState *G, int player_fd, const char* option){
             return 0;
         }
 
-        return 1;
+    }
+    else{
+        printf("option miss!\n");
+        return 0;
     }
 
-    printf("option miss!\n");
     return 0;
 }
 
@@ -213,7 +227,7 @@ int main(){
 
     print_game_state(Game);
 
-    while(Game.isSolved != true){
+    while(!Game.isSolved){
 
         char response[MAX_WORD_LENGHT];
 
@@ -222,17 +236,23 @@ int main(){
             sprintf(current_info,"Its Player %d's turn\n" ,i + 1);
             broadcast(Game, current_info);
 
-            Game.client_turn[i] = 1; 
+            int client_turn = 1; 
             send_to(Game.client_fds[i], "YOUR_TURN\0");
-            while(Game.client_turn[i]){
+            while(client_turn){
                 get_option(Game.client_fds[i], response);
 
-                Game.client_turn[i] &= process_option(&Game, Game.client_fds[i], response);
-            }
+               client_turn &= process_option(&Game, Game.client_fds[i], response);
 
+            }
+            if(Game.isSolved) { 
+                printf("Player %d wins the game!!!\n", i + 1);
+                sprintf(w_buffer, "Player %d wins the game!!!\n", i + 1);
+                break;
+            }
         }
     }
     broadcast(Game,"END\0");
+    broadcast(Game, w_buffer);
 
     close_clients(Game);
 
