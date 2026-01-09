@@ -13,9 +13,9 @@
 #include <time.h>
 
 #define PORT 4001
-#define MAX_PLAYERS 2
+#define MAX_PLAYERS 3
 #define MAX_WORD_LENGHT 1024
-#define OPENING_QUOTE "-------------\nWELCOME TO THE WHEEL OF FORTUNE\n-------------\n\0"
+#define OPENING_QUOTE "------------------------------ WELCOME TO THE WHEEL OF FORTUNE ------------------------------\n\0"
 
 char *WORD_ARRAY[128] ={"Actor","Amazon","Animal","Answer","Apple","Area","Artist","Asteroid","Atlantic","Audience","August","Australia","Bicycle","Biology","Birthday","Bone","Bread","Business","Camera","Captain","Century","Chef","Cinema","Classic","Coffee","Comedy","Comet","Computer","Concert","Country","Create","Dance","Decade","Desert","Dessert","Dinner","Discover","Doctor","Dolphin","Drama","Eagle","Earth","Energy","Famous","Farmer","Fashion","February","Flower","Forest","Friday","Galaxy","Garden","Giraffe","Golden","Gorilla","Gravity","History","Holiday","Honey","Imagine","Island","January","Keyboard","Kitchen","Language","Lawyer","Lemon","Leopard","Listen","Market","Memory","Midnight","Mirror","Modern","Monday","Morning","Mountain","Movie","Music","Nature","Novel","Ocean","Opera","Oxygen","Painting","Paper","Pasta","Penguin","Piano","Pilot","Pizza","Planet","Player","Poetry","Popular","President","Prize","Question","Rabbit","Radio","Remember","River","Rocket","Royal","Science","Silver","Solar","Space","Summer","Teacher","Telephone","Telescope","Television","Theater","Tiger","Tonight","Travel","Umbrella","Valley","Vintage","Volcano","Water","Waterfall","Weather","Website","Winter","Yesterday","Zebra"};
 
@@ -29,10 +29,10 @@ void die(const char* msg){
 }
 
 typedef struct {
-    int client_fds[MAX_PLAYERS];
-    char word_to_guess[MAX_WORD_LENGHT];
-    char masked_word[MAX_WORD_LENGHT];
-    bool isSolved;
+    int     client_fds[MAX_PLAYERS];
+    char    word_to_guess[MAX_WORD_LENGHT];
+    char    masked_word[MAX_WORD_LENGHT];
+    bool    isSolved;
 }GameState;
 
 GameState init_game(){
@@ -143,11 +143,11 @@ int process_option(GameState *G, int player_fd, const char* option){
             spoints[3-i] = digit + '0'; 
         }
         
-        if(points%2 == 0/*points >= 120 && points <= 190*/){
+        if(points >= 120 && points <= 220){
             send_to(player_fd, "bankruptcy");
             return 0;
         }
-        if((points >= 210 && points <= 230) || (points >= 620 && points <= 670)){
+        if((points >= 220 && points <= 430) || (points >= 920 && points <= 1020)){
             send_to(player_fd, "end_of_turn");
             return 0; 
         }

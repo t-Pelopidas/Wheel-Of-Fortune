@@ -6,14 +6,11 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 
-#define MAX_WORD_LENGTH 1024
-#define NUM_OF_OPTIONS 3
+#define MAX_WORD_LENGTH 512
 
 char buffer[MAX_WORD_LENGTH];
 
 int points = 0;
-
-char* OPTION_ARRAY[NUM_OF_OPTIONS] = {"SPIN\n", "GUESS_LETTER\0", "GUESS_WORD\0"};
 
 void die(const char* msg){
     perror(msg);
@@ -75,7 +72,7 @@ int wait_for_turn(int server_fd){
             return 1;
         }
         if(!strncmp(message, "END", strlen("END"))) return 0;
-        printf("Host: %s\n", message);
+        printf("\nHost: %s\n", message);
         fflush(stdout);
     }
 
@@ -88,7 +85,7 @@ void take_a_turn(int server_fd){
 
     while(1){
 
-        printf("> : ");
+        printf("SPIN THE WHEEL > : ");
         fgets(option, MAX_WORD_LENGTH, stdin);
 
         if(!strncmp(option, "SPIN",strlen("SPIN"))){
@@ -96,16 +93,15 @@ void take_a_turn(int server_fd){
             if(send(server_fd, option, strlen(option), 0) < 0) die("Failed to send message"); 
 
             read_line(server_fd, buffer);
-            printf("After spin: %s\n", buffer);
 
             if(!strncmp(buffer, "bankruptcy", strlen("bankruptcy"))){
-                printf("Bankruptcy you lose your points and turn :(\n");
+                printf("BANKRUPTCY!! You lose all your points and your turn :(\n");
                 points = 0;
                 return;
             }
 
             if(!strncmp(buffer, "end_of_turn", strlen("end_of_turn"))){
-                printf("You lose your turn :(\n");
+                printf("LOSE TURN!! Unlucky :(\n");
                 return;
             }
 
@@ -119,9 +115,9 @@ void take_a_turn(int server_fd){
             }
             points += points_received;
 
-            printf("You got %d points!(Total points: %d)\n ", points_received, points);
+            printf("You got %d points! (Total points: %d)\n", points_received, points);
 
-            printf("(GUESS LETTER/WORD)> : ");
+            printf("GUESS LETTER/WORD > : ");
             fgets(option, MAX_WORD_LENGTH, stdin);
 
             while(strncmp(option, "GUESS_LETTER", strlen("GUESS_LETTER")) && strncmp(option, "GUESS_WORD", strlen("GUESS_WORD"))){
@@ -132,11 +128,11 @@ void take_a_turn(int server_fd){
 
             if(!strncmp(option, "GUESS_LETTER", strlen("GUESS_LETTER"))){
                 char letter_to_guess = option[strlen("GUESS_LETTER") + 1];
-                if(letter_to_guess == 0){
+                if(letter_to_guess == 0 || letter_to_guess == ' '){
                     printf("You have to guess a letter\n");
+                    send(server_fd, &letter_to_guess, 1, 0);
                     return;
                 }
-                printf("letter to guess: %d\n", letter_to_guess);
                 send(server_fd, &letter_to_guess, 1, 0);
             }
             else if(!strncmp(option, "GUESS_WORD", strlen("GUESS_WORD"))){
@@ -155,7 +151,7 @@ void take_a_turn(int server_fd){
             read_line(server_fd, response);
 
             if(!strncmp(response, "no_match", strlen("no_match"))){
-                printf("No match found :(\n");
+                printf("No match found\n");
                 return;
             }
             else if(!strncmp(response, "lose_turn", strlen("lose_turn"))){
@@ -176,24 +172,21 @@ void take_a_turn(int server_fd){
 
         }
         else{
-            printf("Option doesnt exist, try again\n"); 
+            printf("Are you not going to spin the wheel?\n"); 
         }
 
     }
 
 }
+
+
 int main(int argc,char* argv[]){
 
-
-    /*
-     * TODO:    
-     *          Check for the bankruptcy and lose turn scenarios
-     *          Delete the debugging printfs
-     */
     if(argc < 3) {
         printf("Usage: %s <IP Address> <Port>\n", argv[0]);
-     ;   die("Wrong Usage");
+        die("Wrong Usage");
     }
+
     int server_fd;
 
     struct sockaddr_in server_addr = init_client(&server_fd, argv[1], argv[2]);
