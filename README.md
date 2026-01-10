@@ -17,6 +17,12 @@
 make all
 ```
 
+Εναλλακτηκα αν δεν δουλεψει η παραπανω μεθοδος μπορειτε να τρεξετε το command: 
+```bash
+gcc server.c -o server -Wall -Wextra -Werror -pedantic -g
+gcc client.c -o client -Wall -Wextra -Werror -pedantic -g
+```
+
 ### Εκτέλεση
 
 Για την εκτέλεση χρειάζονται 4 τερματικά, 1 για τον server και 3 για τους clients.
