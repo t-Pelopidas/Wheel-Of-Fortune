@@ -1,23 +1,23 @@
-# Whell Of Fortune
+### Wheel Of Fortune
 
-### Στοιχεια
-Ομάδα: Πελοπιδας Θωμας
-AM: 2124488 
-email: thomaspelopidas12@gmail.com
-
+### Στοιχεία
+* Ομάδα: Πελοπίδας Θωμάς
+* AM: 2124488
+* emails
+    * gmail: thomaspelopidas12@gmail.com
+    * Ακαδημαϊκό email: thpelopidas@uth.gr
 
 ### Compile
-Αρχεία: server.c , client.c, Makefile
-Μεταγλώττιση: gcc
+* Αρχεία: server.c , client.c, Makefile
+* Μεταγλώττιση: gcc
 
-Για να γινει compile τρεξτε το command
-```bash
+Για να γίνει compile τρέξτε το command:sh
 make all
-```
 
-### Εκτελεση
+### Εκτέλεση
 
-Για την εκτελεση χρειαζονται 4 τερματικα, 1 για τον server και 3 για τους clients  
+Για την εκτέλεση χρειάζονται 4 τερματικά, 1 για τον server και 3 για τους clients.
+
 1) Terminal 1: εκκίνηση server
 ```bash
 ./server
@@ -28,12 +28,12 @@ make all
 ./client 127.0.0.1 4001
 ```
 
-3) Terminal 2: εκκίνηση client 2
+3) Terminal 3: εκκίνηση client 2
 ```bash
 ./client 127.0.0.1 4001
 ```
 
-4) Terminal 2: εκκίνηση client 3
+4) Terminal 4: εκκίνηση client 3
 ```bash
 ./client 127.0.0.1 4001
 ```
