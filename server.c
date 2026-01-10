@@ -13,7 +13,7 @@
 #include <time.h>
 
 #define PORT 4001
-#define MAX_PLAYERS 1
+#define MAX_PLAYERS 3
 #define MAX_WORD_LENGHT 1024
 #define OPENING_QUOTE "------------------------------ WELCOME TO THE WHEEL OF FORTUNE ------------------------------\n\0"
 
