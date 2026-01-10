@@ -42,7 +42,6 @@ void read_line(int server_fd, char *buffer){
     }
 }
 
-
 struct sockaddr_in init_client(int *server_fd, char* ip, char* port){
 
     struct sockaddr_in server_addr;
