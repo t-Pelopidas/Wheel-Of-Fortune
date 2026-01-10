@@ -48,7 +48,6 @@ struct sockaddr_in init_client(int *server_fd, char* ip, char* port){
     struct sockaddr_in server_addr;
 
     if((*server_fd = socket(AF_INET,SOCK_STREAM, 0)) < 0 ) die("Socket Failed");
-    printf("Socket Completed\n");
 
     server_addr.sin_family = AF_INET;
 
@@ -56,7 +55,6 @@ struct sockaddr_in init_client(int *server_fd, char* ip, char* port){
     server_addr.sin_port = htons(int_port);
 
     if(inet_aton(ip, &server_addr.sin_addr) == 0) die("Conversion from ARGUMENT to ADDRESS failed");
-    printf("inet_aton Completed\n");
     
     return server_addr;
 } 
@@ -194,9 +192,6 @@ int main(int argc,char* argv[]){
 
 
     if (connect(server_fd,(struct sockaddr *)&server_addr,server_addr_len) < 0) die("Connect Failed");
-    printf("Connection Established\n");
-
-    printf("%s, %d, %d\n", inet_ntoa(server_addr.sin_addr), htons(server_addr.sin_port), server_fd);
 
     char welcome_message[MAX_WORD_LENGTH] = {0};
     read_line(server_fd, welcome_message);

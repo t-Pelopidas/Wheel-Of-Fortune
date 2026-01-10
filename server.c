@@ -13,14 +13,14 @@
 #include <time.h>
 
 #define PORT 4001
-#define MAX_PLAYERS 3
+#define MAX_PLAYERS 1
 #define MAX_WORD_LENGHT 1024
 #define OPENING_QUOTE "------------------------------ WELCOME TO THE WHEEL OF FORTUNE ------------------------------\n\0"
 
 char *WORD_ARRAY[128] ={"Actor","Amazon","Animal","Answer","Apple","Area","Artist","Asteroid","Atlantic","Audience","August","Australia","Bicycle","Biology","Birthday","Bone","Bread","Business","Camera","Captain","Century","Chef","Cinema","Classic","Coffee","Comedy","Comet","Computer","Concert","Country","Create","Dance","Decade","Desert","Dessert","Dinner","Discover","Doctor","Dolphin","Drama","Eagle","Earth","Energy","Famous","Farmer","Fashion","February","Flower","Forest","Friday","Galaxy","Garden","Giraffe","Golden","Gorilla","Gravity","History","Holiday","Honey","Imagine","Island","January","Keyboard","Kitchen","Language","Lawyer","Lemon","Leopard","Listen","Market","Memory","Midnight","Mirror","Modern","Monday","Morning","Mountain","Movie","Music","Nature","Novel","Ocean","Opera","Oxygen","Painting","Paper","Pasta","Penguin","Piano","Pilot","Pizza","Planet","Player","Poetry","Popular","President","Prize","Question","Rabbit","Radio","Remember","River","Rocket","Royal","Science","Silver","Solar","Space","Summer","Teacher","Telephone","Telescope","Television","Theater","Tiger","Tonight","Travel","Umbrella","Valley","Vintage","Volcano","Water","Waterfall","Weather","Website","Winter","Yesterday","Zebra"};
 
 char r_buffer[MAX_WORD_LENGHT] = {0};
-char w_buffer[MAX_WORD_LENGHT] = {0};
+char w_buffer[MAX_WORD_LENGHT + 1024] = {0};
 
 
 void die(const char* msg){
@@ -123,12 +123,9 @@ void get_option(int server_fd,char *buf){
 
     if((r_bytes = recv(server_fd, buf, MAX_WORD_LENGHT - 1, 0)) < 0) die("Failed to receive message");
     buf[r_bytes]= '\0';
-    printf("I got the option:\n%s\n", buf);
 }
 
 int process_option(GameState *G, int player_fd, const char* option){
-
-    printf("option: %s\n", option);
 
     if(strncmp(option, "SPIN", strlen("SPIN")) == 0){
 
@@ -161,13 +158,10 @@ int process_option(GameState *G, int player_fd, const char* option){
         }
         r_buffer[r_bytes] = '\0';
 
-        printf("letter/word to guess = %s\n", r_buffer);
         if(strlen(r_buffer) ==  1){
             bool match_found = false;
-            printf("strlen(word) = %d\n",(int)strlen(G->word_to_guess));
 
             for(int i = 0; i < (int)strlen(G->word_to_guess); i++){
-                printf("word_to_guess[i] = %c, r_buffer = %c\n",G->word_to_guess[i], *r_buffer);
                 if(G->word_to_guess[i] == *r_buffer){
                     if(G->masked_word[i] == *r_buffer){
                         send_to(player_fd, "lose_turn\0");
@@ -188,7 +182,6 @@ int process_option(GameState *G, int player_fd, const char* option){
             }
             else{
                 broadcast(*G,G->masked_word);
-                printf("masked_word after: %s\n", G->masked_word);
                 return 1;
             }
         }
@@ -204,7 +197,6 @@ int process_option(GameState *G, int player_fd, const char* option){
 
     }
     else{
-        printf("option miss!\n");
         return 0;
     }
 
@@ -236,17 +228,18 @@ int main(){
             sprintf(current_info,"Its Player %d's turn\n" ,i + 1);
             broadcast(Game, current_info);
 
-            int client_turn = 1; 
+            int player_turn = 1; 
             send_to(Game.client_fds[i], "YOUR_TURN\0");
-            while(client_turn){
+            printf("Its player's %d turn\n", i);
+            while(player_turn){
                 get_option(Game.client_fds[i], response);
-
-               client_turn &= process_option(&Game, Game.client_fds[i], response);
+                player_turn &= process_option(&Game, Game.client_fds[i], response);
+                print_game_state(Game);
 
             }
             if(Game.isSolved) { 
                 printf("Player %d wins the game!!!\n", i + 1);
-                sprintf(w_buffer, "Player %d wins the game!!!\n", i + 1);
+                sprintf(w_buffer, "Player %d wins the game!!! The word is %s\n", i + 1, Game.word_to_guess);
                 break;
             }
         }
