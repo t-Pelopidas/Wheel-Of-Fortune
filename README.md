@@ -11,8 +11,11 @@
 * Αρχεία: server.c , client.c, Makefile
 * Μεταγλώττιση: gcc
 
-Για να γίνει compile τρέξτε το command:sh
+Για να γίνει compile τρέξτε το command:
+
+```bash
 make all
+```
 
 ### Εκτέλεση
 
