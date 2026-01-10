@@ -11,13 +11,13 @@
 * Αρχεία: server.c , client.c, Makefile
 * Μεταγλώττιση: gcc
 
-Για να γίνει compile τρέξτε το command:
+Για να γίνει compile τρέξτε την ενολή:
 
 ```bash
 make all
 ```
 
-Εναλλακτηκα αν δεν δουλεψει η παραπανω μεθοδος μπορειτε να τρεξετε το command: 
+Εναλλακτικά, αν αποτύχει η παραπάνω μέθοδος, εκτελέστε την εντολή:
 ```bash
 gcc server.c -o server -Wall -Wextra -Werror -pedantic -g
 gcc client.c -o client -Wall -Wextra -Werror -pedantic -g
