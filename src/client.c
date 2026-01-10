@@ -30,7 +30,10 @@ void read_line(int server_fd, char *buffer){
         }
         n = recv(server_fd, &c, 1, 0);
         if (n < 0) die("recv failed");
-        if (n == 0) die("Server disconnected unexpectedly");
+        if (n == 0) {
+            printf("Game Cancelled: A player disconnected\n");
+            exit(0);
+        }
 
         buffer[i] = c;
 
@@ -127,10 +130,10 @@ void take_a_turn(int server_fd){
                 char letter_to_guess = option[strlen("GUESS_LETTER") + 1];
                 if(letter_to_guess == 0 || letter_to_guess == ' '){
                     printf("You have to guess a letter\n");
-                    send(server_fd, &letter_to_guess, 1, 0);
+                    if(send(server_fd, &letter_to_guess, 1, 0) < 0) die("Failed to send");
                     return;
                 }
-                send(server_fd, &letter_to_guess, 1, 0);
+                if(send(server_fd, &letter_to_guess, 1, 0) < 0) die("Failed to send");
             }
             else if(!strncmp(option, "GUESS_WORD", strlen("GUESS_WORD"))){
                 char word_to_guess[MAX_WORD_LENGTH] = {0};
@@ -141,7 +144,7 @@ void take_a_turn(int server_fd){
                     i++;
                 }
                 word_to_guess[i] = '\0';
-                send(server_fd, word_to_guess, strlen(word_to_guess), 0);
+                if(send(server_fd, word_to_guess, strlen(word_to_guess), 0) < 0) die("Failed to send");
             }
 
             char response[MAX_WORD_LENGTH];
@@ -191,7 +194,7 @@ int main(int argc,char* argv[]){
 
 
     if (connect(server_fd,(struct sockaddr *)&server_addr,server_addr_len) < 0) die("Connect Failed");
-
+    printf("Waiting for player\n");
     char welcome_message[MAX_WORD_LENGTH] = {0};
     read_line(server_fd, welcome_message);
     printf("%s", welcome_message);

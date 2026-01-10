@@ -8,7 +8,6 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <arpa/inet.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -32,7 +31,7 @@ typedef struct {
     int     client_fds[MAX_PLAYERS];
     char    word_to_guess[MAX_WORD_LENGHT];
     char    masked_word[MAX_WORD_LENGHT];
-    bool    isSolved;
+    int     isSolved;
 }GameState;
 
 GameState init_game(){
@@ -46,7 +45,7 @@ GameState init_game(){
     }
     G.masked_word[strlen(WORD_ARRAY[i])] = '\0';
 
-    G.isSolved = false;
+    G.isSolved = 0;
     return G;
 }
 
@@ -118,11 +117,16 @@ struct sockaddr_in init_server(int *server_fd){
 
 }
 
-void get_option(int server_fd,char *buf){
-    int r_bytes = 0;
+int get_option(int server_fd,char *buf){
 
-    if((r_bytes = recv(server_fd, buf, MAX_WORD_LENGHT - 1, 0)) < 0) die("Failed to receive message");
+    int r_bytes = 0;
+    r_bytes = recv(server_fd, r_buffer, MAX_WORD_LENGHT, 0);
+    if(r_bytes < 0) die("Failed to recv");
+    if(r_bytes == 0) return 0;
+
+    strcpy(buf, r_buffer);
     buf[r_bytes]= '\0';
+    return 1;
 }
 
 int process_option(GameState *G, int player_fd, const char* option){
@@ -151,7 +155,13 @@ int process_option(GameState *G, int player_fd, const char* option){
 
         send_to(player_fd, spoints);
 
-        if((r_bytes = recv(player_fd, r_buffer, MAX_WORD_LENGHT, 0))< 0) die("Failed to recv");
+        r_bytes = recv(player_fd, r_buffer, MAX_WORD_LENGHT, 0);
+        if(r_bytes < 0) die("Failed to recv");
+        if(r_bytes == 0) {
+            printf("Player left\n");
+            G->isSolved = -1;
+            return 0;
+        }
 
         if(*r_buffer == 0){
             return 0;
@@ -159,7 +169,7 @@ int process_option(GameState *G, int player_fd, const char* option){
         r_buffer[r_bytes] = '\0';
 
         if(strlen(r_buffer) ==  1){
-            bool match_found = false;
+            int match_found = 0;
 
             for(int i = 0; i < (int)strlen(G->word_to_guess); i++){
                 if(G->word_to_guess[i] == *r_buffer){
@@ -168,7 +178,7 @@ int process_option(GameState *G, int player_fd, const char* option){
                         return 0;
                     }
                     G->masked_word[i] = *r_buffer;
-                    match_found = true;
+                    match_found = 1;
                 }
             }
             if(!match_found){
@@ -177,7 +187,7 @@ int process_option(GameState *G, int player_fd, const char* option){
             }
             if(!strncmp(G->word_to_guess, G->masked_word, strlen(G->word_to_guess))){
                 send_to(player_fd, "word_found\0");
-                G->isSolved = true;
+                G->isSolved = 1;
                 return 0;
             }
             else{
@@ -188,7 +198,7 @@ int process_option(GameState *G, int player_fd, const char* option){
         else{
             if(!strncmp(r_buffer, G->word_to_guess, strlen(G->word_to_guess))){
                 send_to(player_fd, "word_found\0");
-                G->isSolved = true;
+                G->isSolved = 1;
                 return 0;
             }
             send_to(player_fd, "no_match\0");
@@ -196,7 +206,7 @@ int process_option(GameState *G, int player_fd, const char* option){
         }
 
     }
-    else{
+    else{ 
         return 0;
     }
 
@@ -232,15 +242,26 @@ int main(){
             send_to(Game.client_fds[i], "YOUR_TURN\0");
             printf("Its player's %d turn\n", i);
             while(player_turn){
-                get_option(Game.client_fds[i], response);
+                if(get_option(Game.client_fds[i], response) == 0){
+                    printf("player %d disconnected\n", i);
+                    close_clients(Game);
+                    close(server_fd);
+                    exit(0);
+                }
                 player_turn &= process_option(&Game, Game.client_fds[i], response);
                 print_game_state(Game);
 
             }
-            if(Game.isSolved) { 
+            if(Game.isSolved == 1) { 
                 printf("Player %d wins the game!!!\n", i + 1);
                 sprintf(w_buffer, "Player %d wins the game!!! The word is %s\n", i + 1, Game.word_to_guess);
                 break;
+            }
+            if(Game.isSolved == -1){
+                printf("player %d disconncted\n", i);
+                close_clients(Game);
+                close(server_fd);
+                exit(0);
             }
         }
     }
@@ -248,6 +269,5 @@ int main(){
     broadcast(Game, w_buffer);
 
     close_clients(Game);
-
     close(server_fd);
 }
