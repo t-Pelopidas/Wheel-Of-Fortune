@@ -2,10 +2,7 @@
 
 ### Στοιχεία
 * Ομάδα: Πελοπίδας Θωμάς
-* AM: 2124488
-* emails
-    * gmail: thomaspelopidas12@gmail.com
-    * Ακαδημαϊκό email: thpelopidas@uth.gr
+* Ακαδημαϊκό email: thpelopidas@uth.gr
 
 ### Compile
 * Αρχεία: server.c , client.c, Makefile
