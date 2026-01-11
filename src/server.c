@@ -72,7 +72,7 @@ void accept_clients(GameState *G,int *server_fd, struct sockaddr_in server_addre
 }
 
 void print_game_state(GameState G){
-   printf("-----GAME STATE-----\n");
+    printf("-----GAME STATE-----\n");
     printf("client_fds: ");
     for (int i = 0; i<MAX_PLAYERS; i++) {
         printf("%d ",G.client_fds[i]);
