@@ -1,9 +1,5 @@
 ### Wheel Of Fortune
 
-### Στοιχεία
-* Ομάδα: Πελοπίδας Θωμάς
-* Ακαδημαϊκό email: thpelopidas@uth.gr
-
 ### Compile
 * Αρχεία: server.c , client.c, Makefile
 * Μεταγλώττιση: gcc
